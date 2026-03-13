@@ -3,106 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoHub - Real-Time Cryptocurrency Prices</title>
-    <meta name="description" content="Track live cryptocurrency prices, market cap, and trends. Bitcoin, Ethereum, and 100+ coins with real-time updates.">
+    <title>CryptoHub - Live Cryptocurrency Prices & Market Data</title>
+    <meta name="description" content="Track real-time cryptocurrency prices for Bitcoin, Ethereum, and 100+ coins. Live market data, charts, and trends updated every 60 seconds.">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .price-up { color: #10b981; }
-        .price-down { color: #ef4444; }
-        .sparkline { height: 50px; }
+        * { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        body { 
+            background: #0A0A0A;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        .glass-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .glass-hover:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.15);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .gradient-border {
+            position: relative;
+        }
+        
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, #6366F1, #8B5CF6);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+        
+        .price-up { color: #10B981; }
+        .price-down { color: #EF4444; }
+        
+        .shimmer {
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 0.0) 0%, 
+                rgba(255, 255, 255, 0.03) 50%, 
+                rgba(255, 255, 255, 0.0) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.5);
+        }
+        
+        .trend-badge {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+        
+        .coin-logo {
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
+
 <body class="min-h-screen text-white">
-    <div class="container mx-auto px-4 py-6">
+    <!-- Animated Background Grid -->
+    <div class="fixed inset-0 opacity-10 pointer-events-none">
+        <div class="absolute inset-0" style="background-image: linear-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(99, 102, 241, 0.1) 1px, transparent 1px); background-size: 50px 50px;"></div>
+    </div>
+    
+    <div class="relative container mx-auto px-4 py-6 max-w-7xl">
         <!-- Header -->
-        <header class="glass rounded-2xl p-6 mb-6">
-            <div class="flex justify-between items-center flex-wrap gap-4">
+        <header class="glass rounded-3xl p-6 mb-8 fade-in">
+            <div class="flex justify-between items-center flex-wrap gap-6">
                 <div>
-                    <h1 class="text-4xl font-bold mb-2">💰 CryptoHub</h1>
-                    <p class="text-gray-200">Real-time cryptocurrency prices • Powered by CoinGecko</p>
+                    <h1 class="text-5xl font-black mb-2">
+                        <span class="gradient-text">CryptoHub</span>
+                    </h1>
+                    <p class="text-gray-400 text-sm">Real-time cryptocurrency market data</p>
                 </div>
-                <div class="text-right">
-                    <div class="text-sm text-gray-200">Total Market Cap</div>
-                    <div class="text-3xl font-bold" id="totalMarketCap">Loading...</div>
-                    <div class="text-sm" id="marketCapChange"></div>
+                
+                <div class="flex gap-6 items-center">
+                    <div class="text-right">
+                        <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Global Market Cap</div>
+                        <div class="text-3xl font-bold" id="totalMarketCap">
+                            <span class="shimmer inline-block w-32 h-8 rounded"></span>
+                        </div>
+                        <div class="text-sm mt-1" id="marketCapChange">
+                            <span class="shimmer inline-block w-20 h-4 rounded"></span>
+                        </div>
+                    </div>
+                    
+                    <button onclick="refreshData()" class="glass-hover glass px-6 py-3 rounded-xl font-semibold flex items-center gap-2">
+                        <span>🔄</span>
+                        <span class="hidden sm:inline">Refresh</span>
+                    </button>
                 </div>
             </div>
         </header>
 
-        <!-- Search & Filter -->
-        <div class="glass rounded-2xl p-4 mb-6">
+        <!-- Search Bar -->
+        <div class="glass rounded-2xl p-4 mb-8 fade-in" style="animation-delay: 0.1s">
             <div class="flex gap-4 flex-wrap">
-                <input 
-                    type="text" 
-                    id="searchInput" 
-                    placeholder="Search coins..." 
-                    class="flex-1 px-4 py-3 rounded-xl bg-white bg-opacity-20 border border-white border-opacity-30 outline-none"
-                    onkeyup="filterCoins()"
-                />
-                <select id="sortSelect" onchange="sortCoins()" class="px-4 py-3 rounded-xl bg-white bg-opacity-20 border border-white border-opacity-30">
-                    <option value="market_cap_desc">Market Cap (High to Low)</option>
-                    <option value="market_cap_asc">Market Cap (Low to High)</option>
-                    <option value="price_change_24h_desc">24h Change (High to Low)</option>
-                    <option value="price_change_24h_asc">24h Change (Low to High)</option>
+                <div class="flex-1 relative">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Search Bitcoin, Ethereum, or any crypto..." 
+                        class="w-full px-6 py-4 rounded-xl bg-white bg-opacity-5 border border-white border-opacity-10 outline-none focus:border-indigo-500 focus:bg-opacity-10 transition text-lg"
+                        onkeyup="filterCoins()"
+                    />
+                    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
+                        🔍
+                    </div>
+                </div>
+                
+                <select id="sortSelect" onchange="sortCoins()" class="px-6 py-4 rounded-xl bg-white bg-opacity-5 border border-white border-opacity-10 outline-none focus:border-indigo-500 cursor-pointer">
+                    <option value="market_cap_desc">Market Cap ↓</option>
+                    <option value="market_cap_asc">Market Cap ↑</option>
+                    <option value="price_change_24h_desc">24h Change ↓</option>
+                    <option value="price_change_24h_asc">24h Change ↑</option>
+                    <option value="volume_desc">Volume ↓</option>
                 </select>
-                <button onclick="refreshData()" class="px-6 py-3 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition">
-                    🔄 Refresh
-                </button>
             </div>
         </div>
 
-        <!-- Trending Coins -->
-        <div class="glass rounded-2xl p-6 mb-6">
-            <h2 class="text-2xl font-bold mb-4">🔥 Trending Now</h2>
-            <div id="trendingCoins" class="grid md:grid-cols-3 gap-4">
-                Loading trending coins...
+        <!-- Trending Section -->
+        <div class="glass rounded-3xl p-8 mb-8 fade-in" style="animation-delay: 0.2s">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="text-3xl">🔥</span>
+                <h2 class="text-2xl font-bold">Trending Now</h2>
+            </div>
+            
+            <div id="trendingCoins" class="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <!-- Trending coins will load here -->
+                <div class="shimmer rounded-xl h-24"></div>
+                <div class="shimmer rounded-xl h-24"></div>
+                <div class="shimmer rounded-xl h-24"></div>
+                <div class="shimmer rounded-xl h-24"></div>
+                <div class="shimmer rounded-xl h-24"></div>
+                <div class="shimmer rounded-xl h-24"></div>
             </div>
         </div>
 
-        <!-- Main Coins Table -->
-        <div class="glass rounded-2xl p-6">
-            <h2 class="text-2xl font-bold mb-4">📊 Top 100 Cryptocurrencies</h2>
+        <!-- Main Table -->
+        <div class="glass rounded-3xl overflow-hidden fade-in" style="animation-delay: 0.3s">
+            <div class="p-8 border-b border-white border-opacity-10">
+                <h2 class="text-2xl font-bold">Top 100 Cryptocurrencies</h2>
+                <p class="text-gray-400 text-sm mt-1">Updated every 60 seconds</p>
+            </div>
+            
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="border-b border-white border-opacity-20">
-                            <th class="text-left p-3">#</th>
-                            <th class="text-left p-3">Coin</th>
-                            <th class="text-right p-3">Price</th>
-                            <th class="text-right p-3">1h %</th>
-                            <th class="text-right p-3">24h %</th>
-                            <th class="text-right p-3">7d %</th>
-                            <th class="text-right p-3">Market Cap</th>
-                            <th class="text-right p-3">Volume (24h)</th>
-                            <th class="text-center p-3">Last 7 Days</th>
+                        <tr class="border-b border-white border-opacity-10">
+                            <th class="text-left p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">#</th>
+                            <th class="text-left p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Asset</th>
+                            <th class="text-right p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Price</th>
+                            <th class="text-right p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">1h %</th>
+                            <th class="text-right p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">24h %</th>
+                            <th class="text-right p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">7d %</th>
+                            <th class="text-right p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Market Cap</th>
+                            <th class="text-right p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Volume (24h)</th>
+                            <th class="text-center p-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Last 7 Days</th>
                         </tr>
                     </thead>
                     <tbody id="coinsTable">
-                        <tr><td colspan="9" class="text-center p-8">Loading cryptocurrencies...</td></tr>
+                        <tr>
+                            <td colspan="9" class="text-center p-12">
+                                <div class="shimmer inline-block w-full h-12 rounded mb-4"></div>
+                                <div class="shimmer inline-block w-full h-12 rounded mb-4"></div>
+                                <div class="shimmer inline-block w-full h-12 rounded"></div>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <!-- Footer -->
-        <footer class="text-center mt-8 text-sm text-gray-200">
-            <p>Data provided by CoinGecko • Updates every 60 seconds</p>
-            <p class="mt-2">Last updated: <span id="lastUpdate">Never</span></p>
+        <footer class="text-center mt-12 text-sm text-gray-500">
+            <p>Powered by CoinGecko • Updates every 60 seconds</p>
+            <p class="mt-2">Last updated: <span id="lastUpdate" class="text-gray-400">Never</span></p>
         </footer>
-    </div>
-
-    <!-- Ad Placeholder -->
-    <div class="fixed bottom-4 right-4 glass rounded-xl p-4 max-w-xs">
-        <div class="text-xs text-gray-300 mb-2">Advertisement</div>
-        <div class="bg-white bg-opacity-10 rounded-lg p-4 text-center">
-            <div class="text-sm">Google AdSense</div>
-            <div class="text-xs text-gray-400">Place ad code here</div>
-        </div>
     </div>
 
     <script>
@@ -113,13 +258,11 @@
         let allCoins = [];
         let currentSort = 'market_cap_desc';
 
-        // Load data on page load
         window.addEventListener('load', () => {
             loadGlobalData();
             loadTrendingCoins();
             loadTopCoins();
             
-            // Auto-refresh every 60 seconds
             setInterval(() => {
                 loadTopCoins();
                 loadGlobalData();
@@ -133,13 +276,13 @@
                 
                 if (result.success) {
                     const data = result.data;
-                    document.getElementById('totalMarketCap').textContent = 
-                        `$${(data.total_market_cap.usd / 1e12).toFixed(2)}T`;
+                    const marketCap = (data.total_market_cap.usd / 1e12).toFixed(2);
+                    document.getElementById('totalMarketCap').textContent = `$${marketCap}T`;
                     
                     const change = data.market_cap_change_percentage_24h_usd;
                     const changeEl = document.getElementById('marketCapChange');
-                    changeEl.textContent = `${change > 0 ? '+' : ''}${change.toFixed(2)}%`;
-                    changeEl.className = change > 0 ? 'price-up' : 'price-down';
+                    changeEl.textContent = `${change > 0 ? '+' : ''}${change.toFixed(2)}% (24h)`;
+                    changeEl.className = change > 0 ? 'price-up text-sm mt-1' : 'price-down text-sm mt-1';
                 }
             } catch (error) {
                 console.error('Error loading global data:', error);
@@ -156,15 +299,15 @@
                     document.getElementById('trendingCoins').innerHTML = trending.map(item => {
                         const coin = item.item;
                         return `
-                            <div class="bg-white bg-opacity-10 rounded-xl p-4 hover:bg-opacity-20 transition cursor-pointer">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <img src="${coin.small}" alt="${coin.name}" class="w-8 h-8 rounded-full"/>
-                                    <div>
-                                        <div class="font-bold">${coin.name}</div>
-                                        <div class="text-xs text-gray-300">${coin.symbol.toUpperCase()}</div>
+                            <div class="glass-hover glass rounded-xl p-4 cursor-pointer">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <img src="${coin.small}" alt="${coin.name}" class="w-10 h-10 coin-logo"/>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-bold truncate">${coin.name}</div>
+                                        <div class="text-xs text-gray-400 uppercase">${coin.symbol}</div>
                                     </div>
                                 </div>
-                                <div class="text-sm text-gray-300">Rank #${coin.market_cap_rank || 'N/A'}</div>
+                                <div class="text-xs text-gray-500">Rank #${coin.market_cap_rank || 'N/A'}</div>
                             </div>
                         `;
                     }).join('');
@@ -187,7 +330,7 @@
             } catch (error) {
                 console.error('Error loading coins:', error);
                 document.getElementById('coinsTable').innerHTML = 
-                    '<tr><td colspan="9" class="text-center p-8 text-red-400">Error loading data. Please refresh.</td></tr>';
+                    '<tr><td colspan="9" class="text-center p-12 text-red-400">Error loading data. Please refresh.</td></tr>';
             }
         }
 
@@ -200,37 +343,46 @@
                 const priceChange7d = coin.price_change_percentage_7d_in_currency || 0;
                 
                 return `
-                    <tr class="border-b border-white border-opacity-10 hover:bg-white hover:bg-opacity-5 transition">
-                        <td class="p-3 text-gray-300">${coin.market_cap_rank}</td>
-                        <td class="p-3">
-                            <div class="flex items-center gap-3">
-                                <img src="${coin.image}" alt="${coin.name}" class="w-8 h-8 rounded-full"/>
+                    <tr class="border-b border-white border-opacity-5 hover:bg-white hover:bg-opacity-[0.02] transition-all">
+                        <td class="p-6">
+                            <span class="text-gray-500 font-semibold">${coin.market_cap_rank}</span>
+                        </td>
+                        <td class="p-6">
+                            <div class="flex items-center gap-4">
+                                <img src="${coin.image}" alt="${coin.name}" class="w-10 h-10 coin-logo"/>
                                 <div>
-                                    <div class="font-semibold">${coin.name}</div>
-                                    <div class="text-xs text-gray-300">${coin.symbol.toUpperCase()}</div>
+                                    <div class="font-semibold text-lg">${coin.name}</div>
+                                    <div class="text-sm text-gray-500 uppercase">${coin.symbol}</div>
                                 </div>
                             </div>
                         </td>
-                        <td class="p-3 text-right font-mono">$${formatPrice(coin.current_price)}</td>
-                        <td class="p-3 text-right ${priceChange1h >= 0 ? 'price-up' : 'price-down'}">
-                            ${priceChange1h >= 0 ? '+' : ''}${priceChange1h.toFixed(2)}%
+                        <td class="p-6 text-right">
+                            <span class="font-mono text-lg font-semibold">$${formatPrice(coin.current_price)}</span>
                         </td>
-                        <td class="p-3 text-right ${priceChange24h >= 0 ? 'price-up' : 'price-down'}">
-                            ${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%
+                        <td class="p-6 text-right">
+                            <span class="trend-badge ${priceChange1h >= 0 ? 'bg-green-500 bg-opacity-20 text-green-400' : 'bg-red-500 bg-opacity-20 text-red-400'}">
+                                ${priceChange1h >= 0 ? '+' : ''}${priceChange1h.toFixed(2)}%
+                            </span>
                         </td>
-                        <td class="p-3 text-right ${priceChange7d >= 0 ? 'price-up' : 'price-down'}">
-                            ${priceChange7d >= 0 ? '+' : ''}${priceChange7d.toFixed(2)}%
+                        <td class="p-6 text-right">
+                            <span class="trend-badge ${priceChange24h >= 0 ? 'bg-green-500 bg-opacity-20 text-green-400' : 'bg-red-500 bg-opacity-20 text-red-400'}">
+                                ${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%
+                            </span>
                         </td>
-                        <td class="p-3 text-right font-mono">$${formatLargeNumber(coin.market_cap)}</td>
-                        <td class="p-3 text-right font-mono">$${formatLargeNumber(coin.total_volume)}</td>
-                        <td class="p-3">
-                            <canvas id="spark-${coin.id}" class="sparkline" width="100" height="50"></canvas>
+                        <td class="p-6 text-right">
+                            <span class="trend-badge ${priceChange7d >= 0 ? 'bg-green-500 bg-opacity-20 text-green-400' : 'bg-red-500 bg-opacity-20 text-red-400'}">
+                                ${priceChange7d >= 0 ? '+' : ''}${priceChange7d.toFixed(2)}%
+                            </span>
+                        </td>
+                        <td class="p-6 text-right font-mono text-gray-300">$${formatLargeNumber(coin.market_cap)}</td>
+                        <td class="p-6 text-right font-mono text-gray-300">$${formatLargeNumber(coin.total_volume)}</td>
+                        <td class="p-6">
+                            <canvas id="spark-${coin.id}" width="120" height="50"></canvas>
                         </td>
                     </tr>
                 `;
             }).join('');
 
-            // Draw sparklines
             setTimeout(() => {
                 coins.forEach(coin => {
                     if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
@@ -253,21 +405,34 @@
             const range = max - min || 1;
             
             ctx.clearRect(0, 0, width, height);
-            ctx.strokeStyle = isPositive ? '#10b981' : '#ef4444';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
             
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, isPositive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)');
+            gradient.addColorStop(1, isPositive ? 'rgba(16, 185, 129, 0.0)' : 'rgba(239, 68, 68, 0.0)');
+            
+            ctx.beginPath();
             prices.forEach((price, i) => {
                 const x = (i / (prices.length - 1)) * width;
                 const y = height - ((price - min) / range) * height;
-                
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
             });
+            ctx.lineTo(width, height);
+            ctx.lineTo(0, height);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
             
+            ctx.strokeStyle = isPositive ? '#10B981' : '#EF4444';
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            prices.forEach((price, i) => {
+                const x = (i / (prices.length - 1)) * width;
+                const y = height - ((price - min) / range) * height;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
             ctx.stroke();
         }
 
@@ -314,6 +479,9 @@
                     break;
                 case 'price_change_24h_asc':
                     sorted.sort((a, b) => (a.price_change_percentage_24h || 0) - (b.price_change_percentage_24h || 0));
+                    break;
+                case 'volume_desc':
+                    sorted.sort((a, b) => b.total_volume - a.total_volume);
                     break;
             }
             
