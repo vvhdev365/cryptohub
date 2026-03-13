@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoHub - Real-Time Cryptocurrency Prices</title>
+    <meta name="description" content="Track live cryptocurrency prices, market cap, and trends. Bitcoin, Ethereum, and 100+ coins with real-time updates.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .price-up { color: #10b981; }
+        .price-down { color: #ef4444; }
+        .sparkline { height: 50px; }
+    </style>
+</head>
+<body class="min-h-screen text-white">
+    <div class="container mx-auto px-4 py-6">
+        <!-- Header -->
+        <header class="glass rounded-2xl p-6 mb-6">
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="text-4xl font-bold mb-2">💰 CryptoHub</h1>
+                    <p class="text-gray-200">Real-time cryptocurrency prices • Powered by CoinGecko</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-gray-200">Total Market Cap</div>
+                    <div class="text-3xl font-bold" id="totalMarketCap">Loading...</div>
+                    <div class="text-sm" id="marketCapChange"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Search & Filter -->
+        <div class="glass rounded-2xl p-4 mb-6">
+            <div class="flex gap-4 flex-wrap">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search coins..." 
+                    class="flex-1 px-4 py-3 rounded-xl bg-white bg-opacity-20 border border-white border-opacity-30 outline-none"
+                    onkeyup="filterCoins()"
+                />
+                <select id="sortSelect" onchange="sortCoins()" class="px-4 py-3 rounded-xl bg-white bg-opacity-20 border border-white border-opacity-30">
+                    <option value="market_cap_desc">Market Cap (High to Low)</option>
+                    <option value="market_cap_asc">Market Cap (Low to High)</option>
+                    <option value="price_change_24h_desc">24h Change (High to Low)</option>
+                    <option value="price_change_24h_asc">24h Change (Low to High)</option>
+                </select>
+                <button onclick="refreshData()" class="px-6 py-3 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition">
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Trending Coins -->
+        <div class="glass rounded-2xl p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4">🔥 Trending Now</h2>
+            <div id="trendingCoins" class="grid md:grid-cols-3 gap-4">
+                Loading trending coins...
+            </div>
+        </div>
+
+        <!-- Main Coins Table -->
+        <div class="glass rounded-2xl p-6">
+            <h2 class="text-2xl font-bold mb-4">📊 Top 100 Cryptocurrencies</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-white border-opacity-20">
+                            <th class="text-left p-3">#</th>
+                            <th class="text-left p-3">Coin</th>
+                            <th class="text-right p-3">Price</th>
+                            <th class="text-right p-3">1h %</th>
+                            <th class="text-right p-3">24h %</th>
+                            <th class="text-right p-3">7d %</th>
+                            <th class="text-right p-3">Market Cap</th>
+                            <th class="text-right p-3">Volume (24h)</th>
+                            <th class="text-center p-3">Last 7 Days</th>
+                        </tr>
+                    </thead>
+                    <tbody id="coinsTable">
+                        <tr><td colspan="9" class="text-center p-8">Loading cryptocurrencies...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center mt-8 text-sm text-gray-200">
+            <p>Data provided by CoinGecko • Updates every 60 seconds</p>
+            <p class="mt-2">Last updated: <span id="lastUpdate">Never</span></p>
+        </footer>
+    </div>
+
+    <!-- Ad Placeholder -->
+    <div class="fixed bottom-4 right-4 glass rounded-xl p-4 max-w-xs">
+        <div class="text-xs text-gray-300 mb-2">Advertisement</div>
+        <div class="bg-white bg-opacity-10 rounded-lg p-4 text-center">
+            <div class="text-sm">Google AdSense</div>
+            <div class="text-xs text-gray-400">Place ad code here</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8000' 
+            : 'https://cryptohub-production.up.railway.app';
+
+        let allCoins = [];
+        let currentSort = 'market_cap_desc';
+
+        // Load data on page load
+        window.addEventListener('load', () => {
+            loadGlobalData();
+            loadTrendingCoins();
+            loadTopCoins();
+            
+            // Auto-refresh every 60 seconds
+            setInterval(() => {
+                loadTopCoins();
+                loadGlobalData();
+            }, 60000);
+        });
+
+        async function loadGlobalData() {
+            try {
+                const response = await fetch(`${API_URL}/api/global`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    document.getElementById('totalMarketCap').textContent = 
+                        `$${(data.total_market_cap.usd / 1e12).toFixed(2)}T`;
+                    
+                    const change = data.market_cap_change_percentage_24h_usd;
+                    const changeEl = document.getElementById('marketCapChange');
+                    changeEl.textContent = `${change > 0 ? '+' : ''}${change.toFixed(2)}%`;
+                    changeEl.className = change > 0 ? 'price-up' : 'price-down';
+                }
+            } catch (error) {
+                console.error('Error loading global data:', error);
+            }
+        }
+
+        async function loadTrendingCoins() {
+            try {
+                const response = await fetch(`${API_URL}/api/trending`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const trending = result.data.coins.slice(0, 6);
+                    document.getElementById('trendingCoins').innerHTML = trending.map(item => {
+                        const coin = item.item;
+                        return `
+                            <div class="bg-white bg-opacity-10 rounded-xl p-4 hover:bg-opacity-20 transition cursor-pointer">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <img src="${coin.small}" alt="${coin.name}" class="w-8 h-8 rounded-full"/>
+                                    <div>
+                                        <div class="font-bold">${coin.name}</div>
+                                        <div class="text-xs text-gray-300">${coin.symbol.toUpperCase()}</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-300">Rank #${coin.market_cap_rank || 'N/A'}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading trending:', error);
+            }
+        }
+
+        async function loadTopCoins() {
+            try {
+                const response = await fetch(`${API_URL}/api/coins/top?limit=100`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    allCoins = result.data;
+                    displayCoins(allCoins);
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                }
+            } catch (error) {
+                console.error('Error loading coins:', error);
+                document.getElementById('coinsTable').innerHTML = 
+                    '<tr><td colspan="9" class="text-center p-8 text-red-400">Error loading data. Please refresh.</td></tr>';
+            }
+        }
+
+        function displayCoins(coins) {
+            const tbody = document.getElementById('coinsTable');
+            
+            tbody.innerHTML = coins.map(coin => {
+                const priceChange1h = coin.price_change_percentage_1h_in_currency || 0;
+                const priceChange24h = coin.price_change_percentage_24h || 0;
+                const priceChange7d = coin.price_change_percentage_7d_in_currency || 0;
+                
+                return `
+                    <tr class="border-b border-white border-opacity-10 hover:bg-white hover:bg-opacity-5 transition">
+                        <td class="p-3 text-gray-300">${coin.market_cap_rank}</td>
+                        <td class="p-3">
+                            <div class="flex items-center gap-3">
+                                <img src="${coin.image}" alt="${coin.name}" class="w-8 h-8 rounded-full"/>
+                                <div>
+                                    <div class="font-semibold">${coin.name}</div>
+                                    <div class="text-xs text-gray-300">${coin.symbol.toUpperCase()}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-3 text-right font-mono">$${formatPrice(coin.current_price)}</td>
+                        <td class="p-3 text-right ${priceChange1h >= 0 ? 'price-up' : 'price-down'}">
+                            ${priceChange1h >= 0 ? '+' : ''}${priceChange1h.toFixed(2)}%
+                        </td>
+                        <td class="p-3 text-right ${priceChange24h >= 0 ? 'price-up' : 'price-down'}">
+                            ${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%
+                        </td>
+                        <td class="p-3 text-right ${priceChange7d >= 0 ? 'price-up' : 'price-down'}">
+                            ${priceChange7d >= 0 ? '+' : ''}${priceChange7d.toFixed(2)}%
+                        </td>
+                        <td class="p-3 text-right font-mono">$${formatLargeNumber(coin.market_cap)}</td>
+                        <td class="p-3 text-right font-mono">$${formatLargeNumber(coin.total_volume)}</td>
+                        <td class="p-3">
+                            <canvas id="spark-${coin.id}" class="sparkline" width="100" height="50"></canvas>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Draw sparklines
+            setTimeout(() => {
+                coins.forEach(coin => {
+                    if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
+                        drawSparkline(coin.id, coin.sparkline_in_7d.price, coin.price_change_percentage_7d_in_currency >= 0);
+                    }
+                });
+            }, 100);
+        }
+
+        function drawSparkline(coinId, prices, isPositive) {
+            const canvas = document.getElementById(`spark-${coinId}`);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            const max = Math.max(...prices);
+            const min = Math.min(...prices);
+            const range = max - min || 1;
+            
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = isPositive ? '#10b981' : '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            prices.forEach((price, i) => {
+                const x = (i / (prices.length - 1)) * width;
+                const y = height - ((price - min) / range) * height;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            
+            ctx.stroke();
+        }
+
+        function formatPrice(price) {
+            if (price >= 1) {
+                return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else if (price >= 0.01) {
+                return price.toFixed(4);
+            } else {
+                return price.toFixed(8);
+            }
+        }
+
+        function formatLargeNumber(num) {
+            if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+            return num.toFixed(2);
+        }
+
+        function filterCoins() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allCoins.filter(coin => 
+                coin.name.toLowerCase().includes(search) || 
+                coin.symbol.toLowerCase().includes(search)
+            );
+            displayCoins(filtered);
+        }
+
+        function sortCoins() {
+            currentSort = document.getElementById('sortSelect').value;
+            const sorted = [...allCoins];
+            
+            switch(currentSort) {
+                case 'market_cap_desc':
+                    sorted.sort((a, b) => b.market_cap - a.market_cap);
+                    break;
+                case 'market_cap_asc':
+                    sorted.sort((a, b) => a.market_cap - b.market_cap);
+                    break;
+                case 'price_change_24h_desc':
+                    sorted.sort((a, b) => (b.price_change_percentage_24h || 0) - (a.price_change_percentage_24h || 0));
+                    break;
+                case 'price_change_24h_asc':
+                    sorted.sort((a, b) => (a.price_change_percentage_24h || 0) - (b.price_change_percentage_24h || 0));
+                    break;
+            }
+            
+            displayCoins(sorted);
+        }
+
+        function refreshData() {
+            loadGlobalData();
+            loadTrendingCoins();
+            loadTopCoins();
+        }
+    </script>
+</body>
+</html>
